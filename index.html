@@ -215,16 +215,9 @@
   /* ---------- Responsive breakpoints (iframe viewport = PCF control size) ---------- */
   @media (max-width: 640px) {
     .card { padding: 16px 18px; }
-    .chart-area { flex-direction: column; gap: 12px; }
-    .legend {
-      flex-direction: row;
-      flex-wrap: wrap;
-      justify-content: flex-start;
-      gap: 6px 16px;
-      max-height: none;
-      overflow: visible;
-      padding-right: 0;
-    }
+    .chart-area { gap: 12px; }
+    .legend { gap: 7px; }
+    .legend-name { font-size: 11px; }
   }
 
   @media (max-width: 420px) {
