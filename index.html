@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stacked Bar Chart Template</title>
+<style>
+  :root {
+    --card-bg: #ffffff;          /* Menu/background */
+    --card-border: #e5e7eb;      /* grey 200 */
+    --title-color: #111827;      /* grey 900 */
+    --value-color: #111827;      /* grey 900 */
+    --label-color: #686c75;      /* Menu/text muted */
+    --track-bg: #e5e7eb;         /* grey 200 progress track */
+    --row-line: #f3f4f6;         /* grey 100 row separators */
+    --font: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    /* Figma radius tokens: xs 2 / s 4 / m 6 / l 8 / xl 12 */
+    --radius-m: 6px;
+    --radius-l: 8px;
+    --radius-xl: 12px;
+  }
+
+  body.dark {
+    --card-bg: #111827;          /* grey 900 */
+    --card-border: #374151;      /* grey 800 */
+    --title-color: #f3f4f6;      /* grey 100 */
+    --value-color: #ffffff;
+    --label-color: #9ca3af;      /* grey 400 */
+    --track-bg: #374151;         /* grey 800 track on dark */
+    --row-line: #1f2937;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  .card {
+    width: 100%;
+    height: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-xl);
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--title-color);
+    letter-spacing: .1px;
+    flex: 0 0 auto;
+    margin-bottom: 8px;
+  }
+
+  .chart-area {
+    flex: 1 1 auto;
+    display: flex;
+    gap: 20px;
+    min-height: 0;
+  }
+
+  .rows {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .rows::-webkit-scrollbar { display: none; }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 auto;
+  }
+
+  .row-label {
+    flex: 0 0 auto;
+    width: var(--label-width, 84px);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--value-color);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bar-track {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: var(--bar-height, 26px);
+    display: flex;
+    border-radius: var(--bar-radius, 8px);
+    overflow: hidden;               /* clips segments to the rounded ends */
+  }
+
+  /* progress mode: grey track behind a rounded fill */
+  .bar-track.progress {
+    background: var(--track-bg);
+    overflow: visible;
+  }
+  .bar-fill {
+    height: 100%;
+    display: flex;
+    min-width: 0;
+    border-radius: var(--bar-radius, 8px);
+    overflow: hidden;
+  }
+
+  .row-value {
+    flex: 0 0 auto;
+    min-width: 44px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--value-color);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .seg {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    transition: opacity .15s ease;
+    cursor: default;
+  }
+  .bar-track.hovering .seg { opacity: .4; }
+  .bar-track.hovering .seg.active { opacity: 1; }
+
+  .seg-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+    padding: 0 6px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
+
+  .legend {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 9px;
+    padding-right: 4px;
+    max-height: 100%;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .legend::-webkit-scrollbar { display: none; }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .legend-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+  }
+
+  .legend-name {
+    font-size: 12px;
+    color: var(--title-color);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #1f2430;
+    color: #fff;
+    font-size: 11.5px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    opacity: 0;
+    transition: opacity .12s ease;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  .tooltip.show { opacity: 1; }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--label-color);
+    font-size: 12.5px;
+  }
+
+  /* ---------- Responsive breakpoints (iframe viewport = PCF control size) ---------- */
+  @media (max-width: 640px) {
+    .card { padding: 16px 18px; }
+    .chart-area { flex-direction: column; gap: 12px; }
+    .legend {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 6px 16px;
+      max-height: none;
+      overflow: visible;
+      padding-right: 0;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .card { padding: 12px 14px; }
+    .card-title { font-size: 14px; margin-bottom: 6px; }
+    .row-label { font-size: 12px; }
+    .row-value { font-size: 12px; min-width: 36px; }
+    .legend-name { font-size: 11px; }
+    .seg-label { font-size: 10.5px; }
+    .bar-row { gap: 8px; }
+    .rows { gap: 10px; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-title" id="chartTitle"></div>
+    <div class="chart-area" id="chartArea">
+      <div class="rows" id="rows"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+  <div class="tooltip" id="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     CONFIG — defaults; every option can be overridden per chart
+     via the payload (URL hash / query / postMessage).
+     ============================================================ */
+  var CONFIG = {
+    title: "Estimated Reconstruction Cost by Submission Status",
+
+    rowField:    "row",     // column for bar rows (e.g. Event)
+    seriesField: "series",  // column for stacked segments (e.g. Status)
+    valueField:  "value",   // numeric column
+
+    currencySymbol: "$",    // "" for plain numbers
+    darkMode: false,
+    mode: "stacked",        // "stacked" (100% width) | "progress" (vs max, grey track)
+    valueLabels: "full",    // in-segment labels: "full" | "compact" | "none"
+    showRowValue: true,     // progress mode: value at the right end of each row
+    maxValue: null,         // progress mode: fixed scale max; null = largest row total
+    colorRules: null,       // e.g. [{min:90,color:"#17B751"},{min:50,color:"#F7630C"},{min:0,color:"#EF4444"}]
+    barHeight: 26,          // px
+    barRadius: 8,           // px — Figma radius token l (xs 2 / s 4 / m 6 / l 8 / xl 12)
+
+    // Known series get fixed design-system colours; extras rotate the accent palette.
+    seriesColors: {
+      "(Blank)":          "#374151",
+      "TBD":              "#111827",
+      "Identified":       "#F7630C",
+      "Scoped":           "#FACC15",
+      "Approved Council": "#14B8A6",
+      "Submitted RA":     "#17B751",
+      "Approved RA":      "#118E3F",
+      "Withdrawn":        "#EF4444"
+    },
+    // Legend / stacking order. Series not listed are appended in first-seen order.
+    seriesOrder: ["(Blank)", "TBD", "Identified", "Scoped",
+                  "Approved Council", "Submitted RA", "Approved RA", "Withdrawn"],
+    // When seriesOrder is provided, show every listed series in the legend
+    // even if it has no data (matches Power BI behaviour).
+    legendShowAll: true,
+
+    accentPalette: ["#17B751", "#93C5FD", "#FACC15", "#6366F1",
+                    "#F7630C", "#14B8A6", "#EF4444", "#5B03FF",
+                    "#0095FF", "#3EAC2E", "#F64E60", "#10B981"],
+
+    // Demo data — replaced when real data arrives
+    data: [
+      { row: "AGRN 1212", series: "Identified",   value: 133064663 },
+      { row: "AGRN 1212", series: "Scoped",       value: 18000000 },
+      { row: "AGRN 1212", series: "Submitted RA", value: 75509956 },
+      { row: "AGRN 1170", series: "Submitted RA", value: 2343810 },
+      { row: "AGRN 1012", series: "Approved RA",  value: 1568037 },
+      { row: "AGRN 1025", series: "Approved RA",  value: 1096790 },
+      { row: "AGRN 1213", series: "Identified",   value: 146880 }
+    ]
+  };
+  /* ============================================================ */
+
+  var state = {
+    title: CONFIG.title,
+    rowField: CONFIG.rowField,
+    seriesField: CONFIG.seriesField,
+    valueField: CONFIG.valueField,
+    currencySymbol: null,
+    darkMode: CONFIG.darkMode,
+    valueLabels: CONFIG.valueLabels,
+    mode: CONFIG.mode,
+    showRowValue: CONFIG.showRowValue,
+    maxValue: CONFIG.maxValue,
+    colorRules: CONFIG.colorRules,
+    rowDisplay: {},        // per-row right-hand label overrides
+    barHeight: CONFIG.barHeight,
+    barRadius: CONFIG.barRadius,
+    seriesColors: null,   // payload override (object or [{name,color}])
+    seriesOrder: null,    // payload override
+    rowOrder: null,       // payload override; default = row total desc
+    data: []              // [{row, series, value}]
+  };
+
+  // ---------- Formatting ----------
+  function currency() {
+    return state.currencySymbol != null ? state.currencySymbol : CONFIG.currencySymbol;
+  }
+  function fmtFull(v) {
+    return currency() + Math.round(v).toLocaleString("en-US");
+  }
+  function fmtCompact(v) {
+    var s = currency();
+    if (v >= 1e9) return s + trimZero((v / 1e9).toFixed(1)) + "B";
+    if (v >= 1e6) return s + trimZero((v / 1e6).toFixed(v >= 1e7 ? 0 : 1)) + "M";
+    if (v >= 1e3) return s + trimZero((v / 1e3).toFixed(0)) + "K";
+    return s + Math.round(v);
+  }
+  function trimZero(x) { return x.replace(/\.0$/, ""); }
+
+  // ---------- Data intake helpers ----------
+  function getField(rowObj, field) {
+    if (rowObj[field] != null) return rowObj[field];
+    var lower = field.toLowerCase();
+    for (var k in rowObj) {
+      if (k.toLowerCase() === lower) return rowObj[k];
+    }
+    return null;
+  }
+
+  // Normalise to [{row, series, value}], aggregating duplicates.
+  function normalise(rows) {
+    if (!Array.isArray(rows)) return [];
+    var grouped = {};
+    rows.forEach(function (r) {
+      if (r == null) return;
+      var rowName = getField(r, state.rowField);
+      if (rowName == null) rowName = getField(r, "name");
+      var seriesName = getField(r, state.seriesField);
+      var val = getField(r, state.valueField);
+      if (rowName == null || val == null) return;
+      var num = typeof val === "number" ? val : parseFloat(String(val).replace(/[^0-9.\-]/g, ""));
+      if (!isFinite(num)) return;
+      var rk = String(rowName).trim();
+      if (!rk) return;
+      var disp = getField(r, "display");
+      if (disp == null) disp = getField(r, "rowValue");
+      if (disp != null) state.rowDisplay[rk] = String(disp);
+      var sk = seriesName == null ? "(Blank)" : String(seriesName).trim() || "(Blank)";
+      var key = rk + "\u0000" + sk;
+      grouped[key] = (grouped[key] || 0) + num;
+    });
+    return Object.keys(grouped).map(function (k) {
+      var parts = k.split("\u0000");
+      return { row: parts[0], series: parts[1], value: grouped[k] };
+    }).filter(function (d) { return d.value > 0; });
+  }
+
+  // Resolve payload seriesColors: accepts {name: "#hex"} object OR
+  // Power Apps table [{name:"...", color:"#hex"}] (case-insensitive keys).
+  function resolveSeriesColors(raw) {
+    if (!raw) return null;
+    if (Array.isArray(raw)) {
+      var map = {};
+      raw.forEach(function (item) {
+        if (!item || typeof item !== "object") return;
+        var n = getField(item, "name");
+        var c = getField(item, "color");
+        if (n != null && c != null) map[String(n).trim()] = String(c);
+      });
+      return map;
+    }
+    if (typeof raw === "object") return raw;
+    return null;
+  }
+
+  function resolveStringArray(raw) {
+    if (!Array.isArray(raw)) return null;
+    return raw.map(function (item) {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        var v = item.Value || item.value || Object.values(item)[0];
+        return v != null ? String(v) : null;
+      }
+      return null;
+    }).filter(function (x) { return x; });
+  }
+
+  function resolveColorRules(raw) {
+    if (!Array.isArray(raw)) return null;
+    var rules = raw.map(function (item) {
+      if (!item || typeof item !== "object") return null;
+      var mn = getField(item, "min");
+      var c = getField(item, "color");
+      if (mn == null || c == null) return null;
+      return { min: +mn, color: String(c) };
+    }).filter(function (x) { return x && isFinite(x.min); });
+    rules.sort(function (a, b) { return b.min - a.min; }); // highest threshold first
+    return rules.length ? rules : null;
+  }
+
+  function ruleColor(total) {
+    if (!state.colorRules) return null;
+    for (var i = 0; i < state.colorRules.length; i++) {
+      if (total >= state.colorRules[i].min) return state.colorRules[i].color;
+    }
+    return null;
+  }
+
+  function colorFor(seriesName, fallbackIndex) {
+    var map = state.seriesColors || CONFIG.seriesColors;
+    if (map && map[seriesName]) return map[seriesName];
+    if (CONFIG.seriesColors[seriesName] && !state.seriesColors) return CONFIG.seriesColors[seriesName];
+    return CONFIG.accentPalette[fallbackIndex % CONFIG.accentPalette.length];
+  }
+
+  // ---------- Render ----------
+  function render() {
+    document.body.classList.toggle("dark", !!state.darkMode);
+    document.documentElement.style.setProperty("--bar-height", state.barHeight + "px");
+    document.documentElement.style.setProperty("--bar-radius", state.barRadius + "px");
+    // (refined after row count is known, below)
+    document.getElementById("chartTitle").textContent = state.title;
+
+    var rowsEl = document.getElementById("rows");
+    var legendEl = document.getElementById("legend");
+    rowsEl.innerHTML = "";
+    legendEl.innerHTML = "";
+
+    var chartArea = document.getElementById("chartArea");
+    var oldEmpty = document.querySelector(".empty-state");
+    if (oldEmpty) oldEmpty.remove();
+    chartArea.style.display = "flex";
+
+    var data = state.data;
+    if (!data.length) {
+      chartArea.style.display = "none";
+      var emptyDiv = document.createElement("div");
+      emptyDiv.className = "empty-state";
+      emptyDiv.textContent = "Waiting for data from Power Apps…";
+      document.querySelector(".card").appendChild(emptyDiv);
+      return;
+    }
+
+    // Build row totals + series universe
+    var rowTotals = {}, rowFirstSeen = [], seriesFirstSeen = [];
+    data.forEach(function (d) {
+      if (!(d.row in rowTotals)) { rowTotals[d.row] = 0; rowFirstSeen.push(d.row); }
+      rowTotals[d.row] += d.value;
+      if (seriesFirstSeen.indexOf(d.series) < 0) seriesFirstSeen.push(d.series);
+    });
+
+    // Row order: payload override, else total desc
+    var rowOrder = state.rowOrder && state.rowOrder.length
+      ? state.rowOrder.filter(function (r) { return r in rowTotals; })
+      : rowFirstSeen.slice().sort(function (a, b) { return rowTotals[b] - rowTotals[a]; });
+
+    // Series order: configured order first, then unlisted in first-seen order
+    var configured = state.seriesOrder || CONFIG.seriesOrder || [];
+    var seriesOrder = configured.slice();
+    seriesFirstSeen.forEach(function (s2) {
+      if (seriesOrder.indexOf(s2) < 0) seriesOrder.push(s2);
+    });
+
+    // Legend: all configured series if legendShowAll, else only present ones
+    var legendSeries = CONFIG.legendShowAll && configured.length
+      ? seriesOrder
+      : seriesOrder.filter(function (s2) { return seriesFirstSeen.indexOf(s2) >= 0; });
+
+    // Widen the label column to the longest row name (approx via char count)
+    var maxChars = rowOrder.reduce(function (m, r) { return Math.max(m, r.length); }, 0);
+    var labelCap = Math.max(56, Math.min(160, window.innerWidth * 0.26));
+    document.documentElement.style.setProperty("--label-width",
+      Math.min(labelCap, Math.max(56, maxChars * 7.4 + 8)) + "px");
+
+    var tooltip = document.getElementById("tooltip");
+
+    var isProgress = state.mode === "progress";
+    var scaleMax = isProgress
+      ? (state.maxValue != null && +state.maxValue > 0
+          ? +state.maxValue
+          : rowOrder.reduce(function (m, r) { return Math.max(m, rowTotals[r]); }, 0))
+      : 0;
+
+    rowOrder.forEach(function (rowName) {
+      var total = rowTotals[rowName];
+      var rowDiv = document.createElement("div");
+      rowDiv.className = "bar-row";
+
+      var label = document.createElement("div");
+      label.className = "row-label";
+      label.textContent = rowName;
+      label.title = rowName;
+      rowDiv.appendChild(label);
+
+      var track = document.createElement("div");
+      track.className = "bar-track" + (isProgress ? " progress" : "");
+
+      var segHost = track;
+      if (isProgress) {
+        var fill = document.createElement("div");
+        fill.className = "bar-fill";
+        fill.style.width = Math.min(100, total / scaleMax * 100) + "%";
+        track.appendChild(fill);
+        segHost = fill;
+      }
+      var rowColor = isProgress ? ruleColor(total) : null;
+
+      seriesOrder.forEach(function (seriesName, si) {
+        var cell = data.find(function (d) { return d.row === rowName && d.series === seriesName; });
+        if (!cell) return;
+        var seg = document.createElement("div");
+        seg.className = "seg";
+        seg.style.width = (cell.value / total * 100) + "%";
+        seg.style.background = rowColor || colorFor(seriesName, si);
+
+        if (state.valueLabels !== "none") {
+          var span = document.createElement("span");
+          span.className = "seg-label";
+          span.textContent = state.valueLabels === "compact"
+            ? fmtCompact(cell.value) : fmtFull(cell.value);
+          seg.appendChild(span);
+        }
+
+        seg.addEventListener("mousemove", function (ev) {
+          track.classList.add("hovering");
+          seg.classList.add("active");
+          tooltip.innerHTML = "<strong>" + escapeHtml(rowName) + " · " +
+            escapeHtml(seriesName) + "</strong>&nbsp; " + fmtFull(cell.value) +
+            " (" + (cell.value / total * 100).toFixed(1) + "%)";
+          tooltip.style.left = (ev.clientX + 12) + "px";
+          tooltip.style.top = (ev.clientY - 10) + "px";
+          tooltip.classList.add("show");
+        });
+        seg.addEventListener("mouseleave", function () {
+          track.classList.remove("hovering");
+          seg.classList.remove("active");
+          tooltip.classList.remove("show");
+        });
+
+        segHost.appendChild(seg);
+      });
+
+      rowDiv.appendChild(track);
+
+      if (isProgress && state.showRowValue) {
+        var rv = document.createElement("div");
+        rv.className = "row-value";
+        rv.textContent = state.rowDisplay[rowName] != null
+          ? state.rowDisplay[rowName] : fmtCompact(total);
+        rowDiv.appendChild(rv);
+      }
+
+      rowsEl.appendChild(rowDiv);
+    });
+
+    // Legend
+    legendSeries.forEach(function (seriesName, si) {
+      var item = document.createElement("div");
+      item.className = "legend-item";
+      item.innerHTML =
+        '<div class="legend-dot" style="background:' + colorFor(seriesName, si) + '"></div>' +
+        '<div class="legend-name">' + escapeHtml(seriesName) + '</div>';
+      legendEl.appendChild(item);
+    });
+
+    // Hide value labels that don't fit their segment
+    requestAnimationFrame(function () {
+      rowsEl.querySelectorAll(".seg").forEach(function (seg) {
+        var span = seg.querySelector(".seg-label");
+        if (span && span.scrollWidth + 8 > seg.clientWidth) {
+          span.style.visibility = "hidden";
+        }
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // ---------- Payload ----------
+  function applyPayload(payload) {
+    if (!payload) return;
+    if (typeof payload === "string") {
+      try { payload = JSON.parse(payload); } catch (e) { return; }
+    }
+    if (Array.isArray(payload)) {
+      state.data = normalise(payload);
+    } else {
+      if (payload.title)       state.title = String(payload.title);
+      if (payload.rowField)    state.rowField = String(payload.rowField);
+      if (payload.seriesField) state.seriesField = String(payload.seriesField);
+      if (payload.valueField)  state.valueField = String(payload.valueField);
+      if (payload.currencySymbol !== undefined) state.currencySymbol = payload.currencySymbol;
+      if (payload.valueLabels) state.valueLabels = String(payload.valueLabels);
+      if (payload.mode)        state.mode = String(payload.mode);
+      if (payload.showRowValue !== undefined)
+        state.showRowValue = (payload.showRowValue === true || payload.showRowValue === "true");
+      if (payload.maxValue !== undefined) state.maxValue = payload.maxValue;
+      if (payload.colorRules !== undefined) state.colorRules = resolveColorRules(payload.colorRules);
+      if (payload.barHeight)   state.barHeight = +payload.barHeight || state.barHeight;
+      if (payload.barRadius !== undefined) state.barRadius = +payload.barRadius;
+      if (payload.seriesColors !== undefined) state.seriesColors = resolveSeriesColors(payload.seriesColors);
+      if (payload.seriesOrder !== undefined) state.seriesOrder = resolveStringArray(payload.seriesOrder);
+      if (payload.rowOrder !== undefined) state.rowOrder = resolveStringArray(payload.rowOrder);
+      var dm = payload.darkMode != null ? payload.darkMode
+             : payload.darkmode != null ? payload.darkmode : null;
+      if (dm != null) state.darkMode = (dm === true || dm === "true" || dm === 1 || dm === "1");
+      if (payload.data) { state.rowDisplay = {}; state.data = normalise(payload.data); }
+    }
+    render();
+  }
+
+  window.addEventListener("message", function (ev) {
+    var msg = ev.data;
+    if (msg == null) return;
+    if (typeof msg === "string") {
+      try { msg = JSON.parse(msg); } catch (e) { return; }
+    }
+    if (msg.type && msg.type !== "chartData") return;
+    applyPayload(msg);
+  });
+
+  function initFromQuery() {
+    try {
+      var q = new URLSearchParams(window.location.search);
+      var payload = {};
+      ["title", "rowField", "seriesField", "valueField", "valueLabels"].forEach(function (k) {
+        if (q.get(k)) payload[k] = q.get(k);
+      });
+      if (q.get("data")) payload.data = JSON.parse(q.get("data"));
+      if (Object.keys(payload).length) applyPayload(payload);
+    } catch (e) { /* ignore */ }
+  }
+
+  function initFromHash() {
+    try {
+      var h = window.location.hash;
+      if (!h || h.length < 2) return;
+      applyPayload(JSON.parse(decodeURIComponent(h.substring(1))));
+    } catch (e) { /* ignore */ }
+  }
+  window.addEventListener("hashchange", initFromHash);
+
+  window.updateChart = applyPayload;
+
+  state.data = normalise(CONFIG.data);
+  initFromQuery();
+  initFromHash();
+  render();
+  window.addEventListener("resize", render);
+})();
+</script>
+</body>
+</html>
