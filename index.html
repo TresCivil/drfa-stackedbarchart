@@ -75,13 +75,18 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;   /* centre via auto margins below — safe with overflow */
     gap: 22px;
     overflow-y: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    scrollbar-width: thin;              /* Firefox: slim scrollbar instead of hidden */
+    scrollbar-color: var(--card-border) transparent;
   }
-  .rows::-webkit-scrollbar { display: none; }
+  .rows > .bar-row:first-child { margin-top: auto; }
+  .rows > .bar-row:last-child { margin-bottom: auto; }
+  .rows::-webkit-scrollbar { width: 6px; }
+  .rows::-webkit-scrollbar-track { background: transparent; }
+  .rows::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
+  .rows::-webkit-scrollbar-thumb:hover { background: var(--label-color); }
 
   .bar-row {
     display: flex;
