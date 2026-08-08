@@ -702,14 +702,18 @@
       legendEl.appendChild(item);
     });
 
-    // Hide value labels that don't fit their segment
-    requestAnimationFrame(function () {
-      rowsEl.querySelectorAll(".seg").forEach(function (seg) {
-        var span = seg.querySelector(".seg-label");
-        if (span && span.scrollWidth + 8 > seg.clientWidth) {
-          span.style.visibility = "hidden";
-        }
-      });
+    // Hide value labels that don't fit their segment (re-checked by ResizeObserver below,
+    // since the PCF host iframe may report 0-width on the very first paint)
+    requestAnimationFrame(updateLabelFit);
+  }
+
+  function updateLabelFit() {
+    var rowsEl = document.getElementById("rows");
+    rowsEl.querySelectorAll(".seg").forEach(function (seg) {
+      var span = seg.querySelector(".seg-label");
+      if (!span) return;
+      if (seg.clientWidth === 0) return; // not measurable yet — leave visible, recheck later
+      span.style.visibility = (span.scrollWidth + 8 > seg.clientWidth) ? "hidden" : "";
     });
   }
 
@@ -793,6 +797,16 @@
   initFromHash();
   render();
   window.addEventListener("resize", render);
+
+  // PCF hosts often size the iframe asynchronously after first paint, and that
+  // doesn't always fire a window "resize" event inside the iframe. Recheck
+  // label-fit whenever the card's real dimensions land or change.
+  if (window.ResizeObserver) {
+    var labelFitRO = new ResizeObserver(function () {
+      requestAnimationFrame(updateLabelFit);
+    });
+    labelFitRO.observe(document.querySelector(".card"));
+  }
 })();
 </script>
 </body>
