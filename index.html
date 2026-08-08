@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- TEMPLATE_VERSION 12 (2026-07-08) -->
+<!-- TEMPLATE_VERSION 13 (2026-08-08) -->
 <title>Stacked Bar Chart Template</title>
 <style>
   :root {
@@ -76,7 +76,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 12px;
+    gap: 22px;
     overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -85,14 +85,14 @@
 
   .bar-row {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
     flex: 0 0 auto;
   }
 
   .row-label {
     flex: 0 0 auto;
-    width: var(--label-width, 84px);
     font-size: var(--fs-axis, 13px);
     font-weight: 400;
     color: var(--label-color);
@@ -100,6 +100,16 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* rowLabelPosition: "inline" — legacy layout, label beside the bar */
+  .rows.label-inline .bar-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+  .rows.label-inline .row-label {
+    width: var(--label-width, 84px);
   }
 
   .bar-track {
@@ -147,7 +157,7 @@
   .bar-track.hovering .seg.active { opacity: 1; }
 
   .seg-label {
-    font-size: var(--fs-segment, 11.5px);
+    font-size: var(--fs-segment, 13px);
     font-weight: 600;
     color: #ffffff;
     white-space: nowrap;
@@ -168,6 +178,39 @@
     -ms-overflow-style: none;
   }
   .legend::-webkit-scrollbar { display: none; }
+
+  /* legendPosition: "top" — horizontal legend above the bars */
+  .chart-area.legend-top {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .chart-area.legend-top .legend {
+    order: -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 5px 14px;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  /* legendPosition: "bottom" — horizontal legend below the bars, divider above */
+  .chart-area.legend-bottom {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .chart-area.legend-bottom .legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px 20px;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--row-line);
+  }
 
   .legend-item {
     display: flex;
@@ -299,7 +342,7 @@
      via the payload (URL hash / query / postMessage).
      ============================================================ */
   var CONFIG = {
-    title: "Estimated Reconstruction Cost by Submission Status",
+    title: "Estimated Reconstruction Cost by Submission Status IRW/EPA-RW",
 
     rowField:    "row",     // column for bar rows (e.g. Event)
     seriesField: "series",  // column for stacked segments (e.g. Status)
@@ -312,19 +355,21 @@
     showRowValue: true,     // progress mode: value at the right end of each row
     maxValue: null,         // progress mode: fixed scale max; null = largest row total
     colorRules: null,       // e.g. [{min:90,color:"#17B751"},{min:50,color:"#F7630C"},{min:0,color:"#EF4444"}]
-    barHeight: 18,          // px (matched to the stacked bar chart)
+    barHeight: 28,          // px (matched to the stacked bar chart)
     barRadius: 8,           // px — Figma radius token l (xs 2 / s 4 / m 6 / l 8 / xl 12)
+    rowLabelPosition: "above", // "above" (label on its own line) | "inline" (legacy, label beside bar)
+    legendPosition: "bottom",  // "right" | "top" | "bottom"
 
     // Known series get fixed design-system colours; extras rotate the accent palette.
     seriesColors: {
-      "(Blank)":          "#374151",
-      "TBD":              "#111827",
+      "(Blank)":          "#E5E7EB",
+      "TBD":              "#686C75",
       "Identified":       "#F7630C",
       "Scoped":           "#FACC15",
-      "Approved Council": "#14B8A6",
+      "Approved Council": "#6366F1",
       "Submitted RA":     "#17B751",
-      "Approved RA":      "#118E3F",
-      "Withdrawn":        "#EF4444"
+      "Approved RA":      "#079C6B",
+      "Withdrawn":        "#F13B1B"
     },
     // Legend / stacking order. Series not listed are appended in first-seen order.
     seriesOrder: ["(Blank)", "TBD", "Identified", "Scoped",
@@ -366,6 +411,8 @@
     fontSizes: null,   // {title, axis, value, segment, legend} in px
     barHeight: CONFIG.barHeight,
     barRadius: CONFIG.barRadius,
+    rowLabelPosition: CONFIG.rowLabelPosition,
+    legendPosition: CONFIG.legendPosition,
     seriesColors: null,   // payload override (object or [{name,color}])
     seriesOrder: null,    // payload override
     rowOrder: null,       // payload override; default = row total desc
@@ -505,6 +552,11 @@
     var legendEl = document.getElementById("legend");
     rowsEl.innerHTML = "";
     legendEl.innerHTML = "";
+    rowsEl.classList.toggle("label-inline", state.rowLabelPosition === "inline");
+    document.getElementById("chartArea").classList.toggle("legend-top",
+      state.legendPosition === "top");
+    document.getElementById("chartArea").classList.toggle("legend-bottom",
+      state.legendPosition === "bottom");
 
     var chartArea = document.getElementById("chartArea");
     var oldEmpty = document.querySelector(".empty-state");
@@ -685,6 +737,8 @@
       if (payload.barHeight)   state.barHeight = +payload.barHeight || state.barHeight;
       if (payload.fontSizes !== undefined) state.fontSizes = payload.fontSizes;
       if (payload.barRadius !== undefined) state.barRadius = +payload.barRadius;
+      if (payload.rowLabelPosition) state.rowLabelPosition = String(payload.rowLabelPosition);
+      if (payload.legendPosition)   state.legendPosition = String(payload.legendPosition);
       if (payload.seriesColors !== undefined) state.seriesColors = resolveSeriesColors(payload.seriesColors);
       if (payload.seriesOrder !== undefined) state.seriesOrder = resolveStringArray(payload.seriesOrder);
       if (payload.rowOrder !== undefined) state.rowOrder = resolveStringArray(payload.rowOrder);
